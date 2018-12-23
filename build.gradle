@@ -30,7 +30,7 @@ dependencies {
     implementation('org.elasticsearch.client:elasticsearch-rest-high-level-client:6.5.3')
     implementation('org.elasticsearch:elasticsearch:6.5.3')
     
-    compileOnly('org.projectlombok:lombok')
+    compileOnly('org.projectlombok:lombok:1.18.0')
     testImplementation('org.springframework.boot:spring-boot-starter-test')
     testImplementation('io.projectreactor:reactor-test')
 }

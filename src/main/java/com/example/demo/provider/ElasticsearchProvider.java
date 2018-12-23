@@ -6,10 +6,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.get.GetRequest;
 import org.elasticsearch.action.get.GetResponse;
+import org.elasticsearch.action.index.IndexRequest;
+import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
+import org.elasticsearch.common.xcontent.XContentBuilder;
+import org.elasticsearch.common.xcontent.XContentFactory;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
@@ -31,6 +35,28 @@ public class ElasticsearchProvider implements CoffeeUseCase {
 
 
     @Override
+    public Mono<Void> addDocument(Coffee coffee) {
+
+        IndexRequest indexRequest = new IndexRequest("cafe", "coffee")
+                .source("title", coffee.getTitle(),
+                        "price", coffee.getPrice());
+
+        return Mono.create(sink -> {
+            ActionListener<IndexResponse> actionListener = new ActionListener<IndexResponse>() {
+                @Override
+                public void onResponse(IndexResponse indexResponse) {
+                    sink.success();
+                }
+                @Override
+                public void onFailure(Exception e) {
+                }
+            };
+            restHighLevelClient.indexAsync(indexRequest, RequestOptions.DEFAULT, actionListener);
+        });
+    }
+
+
+    @Override
     public Flux<Coffee> findAll() {
 
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
@@ -41,26 +67,22 @@ public class ElasticsearchProvider implements CoffeeUseCase {
     }
 
     @Override
-    public Flux<Coffee> findByTitle(String title) {
+    public Flux<Coffee> searchTermQueryByTitle(String title) {
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
         searchSourceBuilder.query(QueryBuilders.termQuery("title", title));
-
         return getCoffeeFlux(searchSourceBuilder);
     }
 
     @Override
-    public Flux<Coffee> matchPhraseQueryByTitle(String title) {
-
+    public Flux<Coffee> searchMatchPhraseQueryByTitle(String title) {
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
-        //searchSourceBuilder.query(QueryBuilders.matchAllQuery());
         searchSourceBuilder.query(QueryBuilders.matchPhraseQuery("title", title));
-
         return getCoffeeFlux(searchSourceBuilder);
     }
 
 
     private Flux<Coffee> getCoffeeFlux(SearchSourceBuilder searchSourceBuilder) {
-        SearchRequest searchRequest = new SearchRequest("cafe"); //index
+        SearchRequest searchRequest = new SearchRequest("cafe");
         searchRequest.source(searchSourceBuilder);
 
         return Flux.<Coffee>create(sink -> {
@@ -70,7 +92,6 @@ public class ElasticsearchProvider implements CoffeeUseCase {
 
                     for(SearchHit hit : searchResponse.getHits()) {
                         ObjectMapper objectMapper = new ObjectMapper();
-
                         try {
                             Coffee coffee = objectMapper.readValue(hit.getSourceAsString(), Coffee.class);
                             sink.next(coffee);
@@ -85,6 +106,7 @@ public class ElasticsearchProvider implements CoffeeUseCase {
                 public void onFailure(Exception e) {
                 }
             };
+
             restHighLevelClient.searchAsync(searchRequest, RequestOptions.DEFAULT, actionListener);
         });
     }
